@@ -1,6 +1,6 @@
 {
   "name": "atom-bugs-chrome-debugger",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "author": "Williams Medina <williams.medinaa@gmail.com>",
   "description": "Debugger library to connect with atom-bugs plugin launchers using the Chrome Debugging Protocol",
   "keywords": [
@@ -25,7 +25,7 @@
   "dependencies": {
     "@types/node": "^7.0.12",
     "@types/ws": "0.0.39",
-    "chrome-debugging-protocol": "0.0.10",
+    "chrome-debugging-protocol": "0.1.0",
     "source-map": "^0.5.6",
     "ws": "^2.2.2"
   }
