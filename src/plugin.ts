@@ -1,5 +1,3 @@
-'use babel'
-
 import { ChromeDebuggingProtocolLauncher } from './launcher'
 import { ChromeDebuggingProtocolDebugger } from './debugger'
 

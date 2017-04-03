@@ -1,5 +1,3 @@
-'use babel'
-
 import { EventEmitter }  from 'events'
 import { spawn, ChildProcess } from 'child_process'
 import { request } from 'http'

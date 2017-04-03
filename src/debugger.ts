@@ -1,5 +1,3 @@
-'use babel'
-
 import { spawn } from 'child_process'
 import { EventEmitter }  from 'events'
 import { ConsoleMessage, Domains, ChromeDebuggingProtocol }  from 'chrome-debugging-protocol'
