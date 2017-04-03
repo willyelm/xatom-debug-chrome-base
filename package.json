@@ -1,0 +1,32 @@
+{
+  "name": "atom-bugs-chrome-debugger",
+  "version": "0.0.1",
+  "author": "Williams Medina <williams.medinaa@gmail.com>",
+  "description": "Debugger library to connect with atom-bugs plugin launchers using the Chrome Debugging Protocol",
+  "keywords": [
+    "chrome",
+    "debugging",
+    "protocol",
+    "nodejs",
+    "javascript",
+    "typescript"
+  ],
+  "scripts": {
+    "build": "tsc -project src/tsconfig.json",
+    "start": "npm run build -- -w",
+    "prepublish": "npm run build"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/atom-bugs/atom-bugs-chrome-debugger",
+  "main": "./lib/index",
+  "devDependencies": {
+    "typescript": "^2.2.2"
+  },
+  "dependencies": {
+    "@types/node": "^7.0.12",
+    "@types/ws": "0.0.39",
+    "chrome-debugging-protocol": "0.0.5",
+    "source-map": "^0.5.6",
+    "ws": "^2.2.2"
+  }
+}
