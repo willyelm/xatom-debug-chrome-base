@@ -12,6 +12,10 @@ export class ChromeDebuggingProtocolPlugin {
   public launcher: any
   public debugger: any
 
+  register (pluginClient) {
+    this.pluginClient = pluginClient
+  }
+
   addEventListeners () {
     this.launcher.didStop(() => {
       this.pluginClient.stop()
