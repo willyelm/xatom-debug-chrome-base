@@ -39,7 +39,7 @@ export class ChromeDebuggingProtocolDebugger {
     return []
   }
 
-  async connect (socketUrl: string) {
+  public async connect (socketUrl: string) {
     this.protocol = new ChromeDebuggingProtocol(socketUrl)
     this.domains = await this.protocol.connect()
     var {

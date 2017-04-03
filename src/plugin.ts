@@ -59,10 +59,6 @@ export class ChromeDebuggingProtocolPlugin {
     this.debugger.didResume(() => this.pluginClient.resume())
   }
 
-  register (client) {
-    this.pluginClient = client
-  }
-
   // Actions
   async didStop () {
     this.pluginClient.console.clear()
