@@ -25,7 +25,7 @@
   "dependencies": {
     "@types/node": "^7.0.12",
     "@types/ws": "0.0.39",
-    "chrome-debugging-protocol": "0.0.5",
+    "chrome-debugging-protocol": "0.0.6",
     "source-map": "^0.5.6",
     "ws": "^2.2.2"
   }

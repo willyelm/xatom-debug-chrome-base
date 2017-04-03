@@ -37,6 +37,14 @@ export class ChromeDebuggingProtocolDebugger {
     return []
   }
 
+  getFilePathFromUrl (fileUrl: string): string {
+    return fileUrl
+  }
+
+  getUrlFromFilePath (filePath: string): string {
+    return filePath
+  }
+
   public async connect (socketUrl: string) {
     this.protocol = new ChromeDebuggingProtocol(socketUrl)
     this.domains = await this.protocol.connect()
@@ -48,7 +56,9 @@ export class ChromeDebuggingProtocolDebugger {
       Page
     } = this.domains
     // Enable debugging features
-    await Promise.all(this.getFeatures())
+    await Promise.all(this.getFeatures()).catch((e) => {
+      console.log('error', e)
+    })
     this.connected = true
     this.events.emit('didLoad')
     // Add Listener
@@ -76,6 +86,7 @@ export class ChromeDebuggingProtocolDebugger {
       this.events.emit('didResume')
     })
     Debugger.scriptParsed(async (params) => {
+      params.url = this.getFilePathFromUrl(params.url)
       let script: Script = {
         scriptId: params.scriptId,
         url: params.url,
@@ -98,9 +109,10 @@ export class ChromeDebuggingProtocolDebugger {
               lookup.bias = SourceMapConsumer.GREATEST_LOWER_BOUND
               position = smc.originalPositionFor(lookup)
             }
+            let originalFilePath = join(sourcePath.dir, position.source || '')
             if (position.source) {
               return {
-                url: join(sourcePath.dir, position.source || ''),
+                url: originalFilePath,
                 lineNumber: position.line - 1,
                 columnNumber: position.column
               }
@@ -273,6 +285,7 @@ export class ChromeDebuggingProtocolDebugger {
     if (script.sourceMap) {
       position = script.sourceMap.getPosition(lineNumber)
     }
+    position.url = this.getUrlFromFilePath(position.url)
     let breakpoint = await this.domains.Debugger.setBreakpointByUrl(position)
     if (breakpoint) {
       this.breakpoints.push({
@@ -282,21 +295,24 @@ export class ChromeDebuggingProtocolDebugger {
         lineNumber
       })
     }
+    return breakpoint
   }
 
   addBreakpoint (url: string, lineNumber: number) {
-    let script = this.getScriptByUrl(url)
-    if (script) {
-      this.setBreakpointFromScript(script, lineNumber)
-    } else {
-      let listener = (script) => {
-        if (script.url === url) {
-          this.setBreakpointFromScript(script, lineNumber)
-          this.events.removeListener('scriptParse', listener)
+    return new Promise((resolve, reject) => {
+      let script = this.getScriptByUrl(url)
+      if (script) {
+        resolve(this.setBreakpointFromScript(script, lineNumber))
+      } else {
+        let listener = (script) => {
+          if (script.url === url) {
+            resolve(this.setBreakpointFromScript(script, lineNumber))
+            this.events.removeListener('scriptParse', listener)
+          }
         }
+        this.events.addListener('scriptParse', listener)
       }
-      this.events.addListener('scriptParse', listener)
-    }
+    })
   }
 
   getBreakpointById (id): Promise<any> {

@@ -14,6 +14,8 @@ export class ChromeDebuggingProtocolPlugin {
     this.pluginClient = pluginClient
   }
 
+  didLoad() {}
+
   addEventListeners () {
     this.launcher.didStop(() => {
       this.pluginClient.stop()
@@ -24,13 +26,14 @@ export class ChromeDebuggingProtocolPlugin {
     this.launcher.didReceiveError((message) => {
       this.pluginClient.console.error(message)
     })
-    this.debugger.didLoad(() => {
+    this.debugger.didLoad(async () => {
       // apply breakpoints
       let breaks = this.pluginClient.getBreakpoints()
-      breaks.forEach((b) => {
+      await Promise.all(breaks.map((b) => {
         let { filePath, lineNumber } = b
-        this.didAddBreakpoint(filePath, lineNumber)
-      })
+        return this.didAddBreakpoint(filePath, lineNumber)
+      }))
+      this.didLoad()
     })
     this.debugger.didLogMessage((params) => {
       params.args.forEach((a) => {
@@ -70,28 +73,28 @@ export class ChromeDebuggingProtocolPlugin {
   }
   async didResume () {
     if (this.debugger.connected) {
-      this.debugger.resume()
+      return this.debugger.resume()
     }
   }
   async didPause () {
     if (this.debugger.connected) {
-      this.debugger.pause()
+      return this.debugger.pause()
     }
   }
   async didAddBreakpoint (filePath, lineNumber) {
     if (this.debugger.connected) {
-      await this.debugger.addBreakpoint(filePath, lineNumber)
+      return await this.debugger.addBreakpoint(filePath, lineNumber)
     }
   }
   async didRemoveBreakpoint (filePath, lineNumber) {
     if (this.debugger.connected) {
-      this.debugger.removeBreakpoint(filePath, lineNumber)
+      return this.debugger.removeBreakpoint(filePath, lineNumber)
     }
   }
 
   async didStepOver () {
     if (this.debugger.connected) {
-      this.debugger.stepOver()
+      return this.debugger.stepOver()
     }
   }
 
