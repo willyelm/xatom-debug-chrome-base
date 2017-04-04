@@ -41,10 +41,6 @@ export class ChromeDebuggingProtocolDebugger {
     return fileUrl
   }
 
-  getUrlFromFilePath (filePath: string): string {
-    return filePath
-  }
-
   public async connect (socketUrl: string) {
     this.protocol = new ChromeDebuggingProtocol(socketUrl)
     this.domains = await this.protocol.connect()
@@ -86,6 +82,7 @@ export class ChromeDebuggingProtocolDebugger {
       this.events.emit('didResume')
     })
     Debugger.scriptParsed(async (params) => {
+      if (String(params.url).trim().length < 1) return
       params.url = this.getFilePathFromUrl(params.url)
       let script: Script = {
         scriptId: params.scriptId,
@@ -93,10 +90,17 @@ export class ChromeDebuggingProtocolDebugger {
         sourceMapURL: params.sourceMapURL
       }
       if (params.sourceMapURL) {
+        let smc
         let sourcePath = parse(params.url)
-        let mappingPath = join(sourcePath.dir, params.sourceMapURL)
-        // script.sourceMapPath = sourcePath.dir
-        let smc = await this.getSourceMapConsumer(mappingPath)
+        let isBase64 = params.sourceMapURL.match(/^data\:application\/json\;base64\,(.+)$/)
+        if (isBase64) {
+          let base64Content = window.atob(String(isBase64[1]))
+          let rawSourcemap = await this.getObjectFromString(base64Content)
+          smc = new SourceMapConsumer(rawSourcemap)
+        } else {
+          let mappingPath = join(sourcePath.dir, params.sourceMapURL)
+          smc = await this.getJSONSourceMapConsumer(mappingPath)
+        }
         script.sourceMap = {
           getOriginalPosition (lineNumber: number, columnNumber?: number) {
             let lookup = {
@@ -122,9 +126,13 @@ export class ChromeDebuggingProtocolDebugger {
           }
         }
         smc.sources.forEach((sourceUrl) => {
+          let targetUrl = this.getFilePathFromUrl(sourceUrl)
+          if (targetUrl === sourceUrl) {
+            targetUrl = join(sourcePath.dir, sourceUrl)
+          }
           let mapScript: Script = {
             // scriptId: params.scriptId,
-            url: join(sourcePath.dir, sourceUrl),
+            url: targetUrl,
             sourceMap: {
               getPosition (lineNumber: number, columnNumber?: number) {
                 let lookup = {
@@ -154,18 +162,38 @@ export class ChromeDebuggingProtocolDebugger {
     })
   }
 
-  private getSourceMapConsumer (mappingPath: string): Promise<any>  {
+  getUrlForMappedSource (url): any {
+    return null
+  }
+
+  private getObjectFromString (data) {
     return new Promise((resolve, reject) => {
-      readFile(mappingPath, (err, data) => {
+      try {
+        resolve(JSON.parse(data.toString()))
+      } catch (e) {
+        reject(e)
+      }
+    })
+  }
+
+  private getObjectFromFile (filePath: string) {
+    return new Promise((resolve, reject) => {
+      readFile(filePath, (err, data) => {
         if (err) {
           reject(err)
         } else {
-          let rawMapping = JSON.parse(data.toString())
-          let consumer = new SourceMapConsumer(rawMapping)
-          resolve(consumer)
+          resolve(this.getObjectFromString(data))
         }
       })
     })
+  }
+
+  private getJSONSourceMapConsumer (mappingPath: string): Promise<any>  {
+    return this
+      .getObjectFromFile(mappingPath)
+      .then((data) => {
+        return new SourceMapConsumer(data)
+      })
   }
 
   resume () {
@@ -278,6 +306,7 @@ export class ChromeDebuggingProtocolDebugger {
   }
 
   async setBreakpointFromScript (script: Script, lineNumber: number) {
+
     let position = {
       url: script.url,
       lineNumber: lineNumber
@@ -285,7 +314,7 @@ export class ChromeDebuggingProtocolDebugger {
     if (script.sourceMap) {
       position = script.sourceMap.getPosition(lineNumber)
     }
-    position.url = this.getUrlFromFilePath(position.url)
+    position.url = this.getFilePathFromUrl(position.url)
     let breakpoint = await this.domains.Debugger.setBreakpointByUrl(position)
     if (breakpoint) {
       this.breakpoints.push({
