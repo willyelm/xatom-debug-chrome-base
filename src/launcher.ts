@@ -38,6 +38,11 @@ export class ChromeDebuggingProtocolLauncher {
   getBinaryPath (): string {
     return null
   }
+  getProcessOptions (): Object {
+    return {
+      shell: true
+    }
+  }
   stop () {
     this.process.kill()
     this.events.emit('didStop')
@@ -46,9 +51,7 @@ export class ChromeDebuggingProtocolLauncher {
     let launchArgs = this.getLauncherArguments()
     let binaryPath = this.getBinaryPath()
     if (binaryPath) {
-      this.process = spawn(binaryPath, launchArgs, {
-        shell: true
-      })
+      this.process = spawn(binaryPath, launchArgs, this.getProcessOptions())
       this.process.stdout.on('data', (res: Uint8Array) => {
         this.events.emit('didReceiveOutput')
       })
