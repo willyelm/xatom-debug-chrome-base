@@ -24,7 +24,9 @@ export class ChromeDebuggingProtocolPlugin {
       this.pluginClient.console.error(message)
     })
     this.launcher.didReceiveError((message) => {
-      this.pluginClient.console.error(message)
+      if (String(message).trim().length > 0) {
+        this.pluginClient.console.error(message)
+      }
     })
     this.debugger.didLoad(async () => {
       // apply breakpoints
@@ -42,7 +44,7 @@ export class ChromeDebuggingProtocolPlugin {
             this.pluginClient.console[params.type](a.value)
           } break
           default:
-            console.log('unhandled console', params)
+            console.log('unhandled console', a)
         }
       })
     })

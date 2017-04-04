@@ -71,23 +71,25 @@ export class ChromeDebuggingProtocolLauncher {
   }
   getPages (): Promise<Pages> {
     return new Promise((resolve, reject) => {
-      let req = request({
-        hostname: this.hostName,
-        port: this.portNumber,
-        path: '/json',
-        method: 'GET'
-      }, (res) => {
-        res.setEncoding('utf8')
-        res.on('data', (chunk) => {
-          try {
-            resolve(JSON.parse(String(chunk)) as Pages)
-          } catch (e) {
-            reject(e)
-          }
+      setTimeout(() => {
+        let req = request({
+          hostname: this.hostName,
+          port: this.portNumber,
+          path: '/json',
+          method: 'GET'
+        }, (res) => {
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => {
+            try {
+              resolve(JSON.parse(String(chunk)) as Pages)
+            } catch (e) {
+              reject(e)
+            }
+          })
         })
-      })
-      req.on('error', reject)
-      req.end()
+        req.on('error', reject)
+        req.end()
+      }, 500)
     })
   }
   findSocketUrl (pages): Promise<string> {
