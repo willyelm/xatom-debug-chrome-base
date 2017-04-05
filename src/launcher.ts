@@ -48,21 +48,25 @@ export class ChromeDebuggingProtocolLauncher {
     this.events.emit('didStop')
   }
   start (): Promise<string> {
+    this.attempt = 0
     let launchArgs = this.getLauncherArguments()
     let binaryPath = this.getBinaryPath()
     if (binaryPath) {
+      let output = ''
       this.process = spawn(binaryPath, launchArgs, this.getProcessOptions())
       this.process.stdout.on('data', (res: Uint8Array) => {
+        output += res.toString()
         this.events.emit('didReceiveOutput', res)
       })
       this.process.stderr.on('data', (res: Uint8Array) => {
         if (res.toString().length > 0) {
+          output += res.toString()
           this.events.emit('didReceiveError', res)
         }
       })
       this.process.on('close', (code) => {
         if (code !== 0) {
-          this.events.emit('didFail')
+          this.events.emit('didFail', output)
         }
         this.events.emit('didStop')
       })
@@ -105,7 +109,6 @@ export class ChromeDebuggingProtocolLauncher {
       } else {
         reject('unable to find page with socket')
       }
-
       // let found = (pages || []).find((page: Page) => {
       //   return (page.url === 'chrome://newtab/')
       // })
@@ -118,17 +121,20 @@ export class ChromeDebuggingProtocolLauncher {
   }
   getSocketUrl (): Promise<string> {
     return new Promise((resolve, reject) => {
-      setTimeout(async () => {
-        let pages = await this
+      setTimeout(() => {
+        this.attempt++
+        this
           .getPages()
           .catch(() => {
             if (this.attempt <= this.maxAttempts) {
               resolve(this.getSocketUrl())
             } else {
-              reject('unable to get pages')
+              reject('Unable to get remote debugger pages')
             }
           })
-        resolve(this.findSocketUrl(pages))
+          .then((pages) => {
+            resolve(this.findSocketUrl(pages))
+          })
       }, 500)
     })
   }

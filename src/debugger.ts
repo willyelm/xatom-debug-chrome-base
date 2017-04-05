@@ -3,6 +3,7 @@ import { EventEmitter }  from 'events'
 import { ConsoleMessage, Domains, ChromeDebuggingProtocol }  from 'chrome-debugging-protocol'
 import { dirname, join, parse } from 'path'
 import { readFile } from 'fs'
+import { get, find, extend } from 'lodash'
 const { SourceMapConsumer } = require('source-map')
 
 export interface Script {
@@ -72,9 +73,9 @@ export class ChromeDebuggingProtocolDebugger {
         })
       }
     })
-    Page.loadEventFired((params) => {
-      this.scripts = []
-    })
+    // Page.loadEventFired((params) => {
+    //   this.scripts = []
+    // })
     Runtime.consoleAPICalled((params) => {
       this.events.emit('didLogMessage', params)
     })
@@ -99,9 +100,10 @@ export class ChromeDebuggingProtocolDebugger {
       if (params.sourceMapURL) {
         let smc
         let sourcePath = parse(params.url)
-        let isBase64 = params.sourceMapURL.match(/^data\:application\/json\;base64\,(.+)$/)
+        let isBase64 = params.sourceMapURL
+          .match(/^data\:application\/json\;(charset=.+)?base64\,(.+)$/)
         if (isBase64) {
-          let base64Content = window.atob(String(isBase64[1]))
+          let base64Content = window.atob(String(isBase64[2]))
           let rawSourcemap = await this.getObjectFromString(base64Content)
           smc = new SourceMapConsumer(rawSourcemap)
         } else {
@@ -173,6 +175,12 @@ export class ChromeDebuggingProtocolDebugger {
   }
 
   addParsedScript (script: Script) {
+    let parsed = find(this.scripts, {
+      url: script.url
+    })
+    if (parsed) {
+      script = extend({}, parsed, script)
+    }
     this.scripts.push(script)
     this.events.emit('didLoadScript', script)
   }
