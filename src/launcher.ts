@@ -53,10 +53,12 @@ export class ChromeDebuggingProtocolLauncher {
     if (binaryPath) {
       this.process = spawn(binaryPath, launchArgs, this.getProcessOptions())
       this.process.stdout.on('data', (res: Uint8Array) => {
-        this.events.emit('didReceiveOutput')
+        this.events.emit('didReceiveOutput', res)
       })
       this.process.stderr.on('data', (res: Uint8Array) => {
-        this.events.emit('didReceiveError')
+        if (res.toString().length > 0) {
+          this.events.emit('didReceiveError', res)
+        }
       })
       this.process.on('close', (code) => {
         if (code !== 0) {

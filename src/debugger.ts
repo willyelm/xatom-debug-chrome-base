@@ -21,6 +21,10 @@ export class ChromeDebuggingProtocolDebugger {
   public scripts: Array<Script> = []
   public callFrames: Array<any> = []
   public events: EventEmitter = new EventEmitter()
+  private ignoreUrls: Array<string> = [
+    '',
+    'extensions::app'
+  ]
   // Methods
   public disconnect () {
     if (this.protocol) {
@@ -33,8 +37,8 @@ export class ChromeDebuggingProtocolDebugger {
   }
 
   // override with debugger
-  getFeatures (): Array<Promise<any>> {
-    return []
+  didConnect (domains: Domains): Promise<any> {
+    return Promise.resolve()
   }
 
   getFilePathFromUrl (fileUrl: string): string {
@@ -43,7 +47,12 @@ export class ChromeDebuggingProtocolDebugger {
 
   public async connect (socketUrl: string) {
     this.protocol = new ChromeDebuggingProtocol(socketUrl)
-    this.domains = await this.protocol.connect()
+    this.domains = await this.protocol
+      .connect()
+      .then((domains) => {
+        this.connected = true
+        return domains
+      })
     var {
       Console,
       Profiler,
@@ -51,14 +60,8 @@ export class ChromeDebuggingProtocolDebugger {
       Debugger,
       Page
     } = this.domains
-    // Enable debugging features
-    await Promise.all(this.getFeatures()).catch((e) => {
-      console.log('error', e)
-    })
-    this.connected = true
-    this.events.emit('didLoad')
-    // Add Listener
     this.protocol.didClose(() => this.events.emit('didClose'))
+    // Add Listeners
     Runtime.exceptionThrown((params) => {
       if (params.exceptionDetails) {
         this.events.emit('didLogMessage', {
@@ -82,7 +85,7 @@ export class ChromeDebuggingProtocolDebugger {
       this.events.emit('didResume')
     })
     Debugger.scriptParsed(async (params) => {
-      if (String(params.url).trim().length < 1) return
+      if (this.ignoreUrls['includes'](String(params.url))) return
       params.url = this.getFilePathFromUrl(params.url)
       let script: Script = {
         scriptId: params.scriptId,
@@ -102,7 +105,7 @@ export class ChromeDebuggingProtocolDebugger {
           smc = await this.getJSONSourceMapConsumer(mappingPath)
         }
         script.sourceMap = {
-          getOriginalPosition (lineNumber: number, columnNumber?: number) {
+          getOriginalPosition: (lineNumber: number, columnNumber?: number) => {
             let lookup = {
               line: lineNumber + 1,
               column: columnNumber || 0,
@@ -113,10 +116,13 @@ export class ChromeDebuggingProtocolDebugger {
               lookup.bias = SourceMapConsumer.GREATEST_LOWER_BOUND
               position = smc.originalPositionFor(lookup)
             }
-            let originalFilePath = join(sourcePath.dir, position.source || '')
+            let targetUrl = this.getFilePathFromUrl(position.source || '')
+            if (targetUrl === position.source) {
+              targetUrl = join(sourcePath.dir, position.source)
+            }
             if (position.source) {
               return {
-                url: originalFilePath,
+                url: targetUrl,
                 lineNumber: position.line - 1,
                 columnNumber: position.column
               }
@@ -160,6 +166,8 @@ export class ChromeDebuggingProtocolDebugger {
       this.events.emit('scriptParse', script)
       this.scripts.push(script)
     })
+    // trigger connected
+    return await this.didConnect(this.domains)
   }
 
   getUrlForMappedSource (url): any {
@@ -305,26 +313,33 @@ export class ChromeDebuggingProtocolDebugger {
     return this.callFrames[index]
   }
 
-  async setBreakpointFromScript (script: Script, lineNumber: number) {
-
-    let position = {
-      url: script.url,
-      lineNumber: lineNumber
-    }
-    if (script.sourceMap) {
-      position = script.sourceMap.getPosition(lineNumber)
-    }
-    position.url = this.getFilePathFromUrl(position.url)
-    let breakpoint = await this.domains.Debugger.setBreakpointByUrl(position)
-    if (breakpoint) {
-      this.breakpoints.push({
-        id: breakpoint.breakpointId,
+  setBreakpointFromScript (script: Script, lineNumber: number) {
+    return new Promise((resolve) => {
+      let position = {
         url: script.url,
-        columnNumber: 0,
-        lineNumber
-      })
-    }
-    return breakpoint
+        lineNumber: lineNumber
+      }
+      if (script.sourceMap) {
+        position = script.sourceMap.getPosition(lineNumber)
+      }
+      position.url = this.getFilePathFromUrl(position.url)
+      this
+        .domains
+        .Debugger
+        .setBreakpointByUrl(position)
+        .then((breakpoint) => {
+          this.breakpoints.push({
+            id: breakpoint.breakpointId,
+            url: script.url,
+            columnNumber: 0,
+            lineNumber
+          })
+          resolve(breakpoint)
+        })
+        .catch((message) => {
+          console.log('e', message)
+        })
+    })
   }
 
   addBreakpoint (url: string, lineNumber: number) {
@@ -382,9 +397,6 @@ export class ChromeDebuggingProtocolDebugger {
     })
   }
   // Events
-  didLoad (cb: Function) {
-    this.events.addListener('didLoad', cb)
-  }
   didClose (cb: Function) {
     this.events.addListener('didClose', cb)
   }

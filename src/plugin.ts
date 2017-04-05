@@ -10,11 +10,19 @@ export class ChromeDebuggingProtocolPlugin {
   public launcher: any
   public debugger: any
 
+  private isConsoleEnabled: boolean = true
+
   register (pluginClient) {
     this.pluginClient = pluginClient
   }
 
-  didLoad() {}
+  enableConsole() {
+    this.isConsoleEnabled = true
+  }
+
+  disableConsole () {
+    this.isConsoleEnabled = false
+  }
 
   addEventListeners () {
     this.launcher.didStop(() => {
@@ -23,21 +31,14 @@ export class ChromeDebuggingProtocolPlugin {
     this.launcher.didFail((message) => {
       this.pluginClient.console.error(message)
     })
-    this.launcher.didReceiveError((message) => {
-      if (String(message).trim().length > 0) {
-        this.pluginClient.console.error(message)
-      }
-    })
-    this.debugger.didLoad(async () => {
-      // apply breakpoints
-      let breaks = this.pluginClient.getBreakpoints()
-      await Promise.all(breaks.map((b) => {
-        let { filePath, lineNumber } = b
-        return this.didAddBreakpoint(filePath, lineNumber)
-      }))
-      this.didLoad()
-    })
+    // this.launcher.didReceiveOutput((message) => {
+    //   this.pluginClient.console.log(message)
+    // })
+    // this.launcher.didReceiveError((message) => {
+    //   this.pluginClient.console.error(message)
+    // })
     this.debugger.didLogMessage((params) => {
+      if (this.isConsoleEnabled === false) return
       params.args.forEach((a) => {
         switch (a.type) {
           case 'string': {
@@ -66,7 +67,16 @@ export class ChromeDebuggingProtocolPlugin {
     this.debugger.didResume(() => this.pluginClient.resume())
   }
 
-  // Actions
+  async setCurrentBreakpoints () {
+    // apply breakpoints
+    let breaks = this.pluginClient.getBreakpoints()
+    await Promise.all(breaks.map((b) => {
+      let { filePath, lineNumber } = b
+      return this.didAddBreakpoint(filePath, lineNumber)
+    }))
+  }
+
+  // Plugin Actions
   async didStop () {
     this.pluginClient.console.clear()
     await this.debugger.disconnect()
