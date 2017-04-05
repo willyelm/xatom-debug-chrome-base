@@ -72,6 +72,9 @@ export class ChromeDebuggingProtocolDebugger {
         })
       }
     })
+    Page.loadEventFired((params) => {
+      this.scripts = []
+    })
     Runtime.consoleAPICalled((params) => {
       this.events.emit('didLogMessage', params)
     })
@@ -85,7 +88,8 @@ export class ChromeDebuggingProtocolDebugger {
       this.events.emit('didResume')
     })
     Debugger.scriptParsed(async (params) => {
-      if (this.ignoreUrls['includes'](String(params.url))) return
+      let isIgnored = this.ignoreUrls['includes'](String(params.url))
+      if (isIgnored ) return
       params.url = this.getFilePathFromUrl(params.url)
       let script: Script = {
         scriptId: params.scriptId,
@@ -140,7 +144,7 @@ export class ChromeDebuggingProtocolDebugger {
             // scriptId: params.scriptId,
             url: targetUrl,
             sourceMap: {
-              getPosition (lineNumber: number, columnNumber?: number) {
+              getPosition: (lineNumber: number, columnNumber?: number) => {
                 let lookup = {
                   source: sourceUrl,
                   line: lineNumber + 1,
@@ -159,15 +163,18 @@ export class ChromeDebuggingProtocolDebugger {
               }
             }
           }
-          this.events.emit('scriptParse', mapScript)
-          this.scripts.push(mapScript)
+          this.addParsedScript(mapScript)
         })
       }
-      this.events.emit('scriptParse', script)
-      this.scripts.push(script)
+      this.addParsedScript(script)
     })
     // trigger connected
     return await this.didConnect(this.domains)
+  }
+
+  addParsedScript (script: Script) {
+    this.scripts.push(script)
+    this.events.emit('didLoadScript', script)
   }
 
   getUrlForMappedSource (url): any {
@@ -283,30 +290,32 @@ export class ChromeDebuggingProtocolDebugger {
   }
 
   getCallStack () {
-    return this.callFrames.filter((frame: any) => {
-      frame.location.script = this.getScriptById(parseInt(frame.location.scriptId))
-      let sourceMap = frame.location.script.sourceMap
-      if (sourceMap) {
-        let position = sourceMap.getOriginalPosition(frame.location.lineNumber,
-          parseInt(frame.location.columnNumber))
-        if (position) {
-          frame.location.script.url = position.url
-          frame.location.lineNumber = position.lineNumber
-          frame.location.columnNumber = position.columnNumber
-          return true
-        } else {
-          return false
+    return this.callFrames
+      .filter((frame: any) => {
+        frame.location.script = this.getScriptById(parseInt(frame.location.scriptId))
+        let sourceMap = frame.location.script.sourceMap
+        if (sourceMap) {
+          let position = sourceMap.getOriginalPosition(frame.location.lineNumber,
+            parseInt(frame.location.columnNumber))
+          if (position) {
+            frame.location.script.url = position.url
+            frame.location.lineNumber = position.lineNumber
+            frame.location.columnNumber = position.columnNumber
+            return true
+          } else {
+            return false
+          }
         }
-      }
-      return true
-    }).map((frame) => {
-      return {
-        name: frame.functionName,
-        columnNumber: frame.location.columnNumber,
-        lineNumber: frame.location.lineNumber,
-        filePath: frame.location.script.url
-      }
-    })
+        return true
+      })
+      .map((frame) => {
+        return {
+          name: frame.functionName,
+          columnNumber: frame.location.columnNumber,
+          lineNumber: frame.location.lineNumber,
+          filePath: frame.location.script.url
+        }
+      })
   }
 
   getFrameByIndex (index: number) {
@@ -343,20 +352,18 @@ export class ChromeDebuggingProtocolDebugger {
   }
 
   addBreakpoint (url: string, lineNumber: number) {
-    return new Promise((resolve, reject) => {
-      let script = this.getScriptByUrl(url)
-      if (script) {
-        resolve(this.setBreakpointFromScript(script, lineNumber))
-      } else {
-        let listener = (script) => {
-          if (script.url === url) {
+    return this
+      .removeBreakpoint(url, lineNumber)
+      .then(() => {
+        return new Promise((resolve, reject) => {
+          let script = this.getScriptByUrl(url)
+          if (script) {
             resolve(this.setBreakpointFromScript(script, lineNumber))
-            this.events.removeListener('scriptParse', listener)
+          } else {
+            reject(`${url} is not parsed`)
           }
-        }
-        this.events.addListener('scriptParse', listener)
-      }
-    })
+        })
+      })
   }
 
   getBreakpointById (id): Promise<any> {
@@ -368,10 +375,14 @@ export class ChromeDebuggingProtocolDebugger {
     })
   }
 
-  removeBreakpoint (url: string, lineNumber: number) {
-    let breakpoint: any = this.breakpoints.find((b: any) => {
+  getBreakpoint (url: string, lineNumber: number) {
+    return this.breakpoints.find((b: any) => {
       return (b.url === url && b.lineNumber === lineNumber)
     })
+  }
+
+  removeBreakpoint (url: string, lineNumber: number) {
+    let breakpoint: any = this.getBreakpoint(url, lineNumber)
     if (breakpoint) {
       let index = this.breakpoints.indexOf(breakpoint)
       this.breakpoints.splice(index, 1)
@@ -379,6 +390,7 @@ export class ChromeDebuggingProtocolDebugger {
         breakpointId: breakpoint.id
       })
     }
+    return Promise.resolve()
   }
   getScope () {
     let firstFrame = this.getFrameByIndex(0)
@@ -402,6 +414,9 @@ export class ChromeDebuggingProtocolDebugger {
   }
   didLogMessage (cb: Function) {
     this.events.addListener('didLogMessage', cb)
+  }
+  didLoadScript (cb: Function) {
+    this.events.addListener('didLoadScript', cb)
   }
   didPause (cb: Function) {
     this.events.addListener('didPause', cb)

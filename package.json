@@ -23,9 +23,11 @@
     "typescript": "^2.2.2"
   },
   "dependencies": {
+    "@types/lodash": "^4.14.61",
     "@types/node": "^7.0.12",
     "@types/ws": "0.0.39",
     "chrome-debugging-protocol": "0.1.0",
+    "lodash": "^4.17.4",
     "source-map": "^0.5.6",
     "ws": "^2.2.2"
   }

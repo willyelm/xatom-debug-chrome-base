@@ -1,6 +1,8 @@
 import { ChromeDebuggingProtocolLauncher } from './launcher'
 import { ChromeDebuggingProtocolDebugger } from './debugger'
 
+import { get, first, clone } from 'lodash'
+
 export class ChromeDebuggingProtocolPlugin {
 
   public options: Object
@@ -53,27 +55,47 @@ export class ChromeDebuggingProtocolPlugin {
       this.pluginClient.stop()
     })
     this.debugger.didPause((params) => {
+      let callstackFrames = this.debugger.getCallStack()
       if (params.hitBreakpoints && params.hitBreakpoints.length > 0) {
         params.hitBreakpoints.forEach(async (id) => {
           let breakpoint = await this.debugger.getBreakpointById(id)
-          this.pluginClient.activateBreakpoint(breakpoint.url, breakpoint.lineNumber)
+          if (breakpoint) {
+            this.pluginClient.activateBreakpoint(breakpoint.url, breakpoint.lineNumber)
+          } else {
+            this.activateFirstFrame(callstackFrames)
+          }
         })
+      } else {
+        this.activateFirstFrame(callstackFrames)
       }
-      this.pluginClient.setCallStack(this.debugger.getCallStack())
+
+      this.pluginClient.setCallStack(callstackFrames)
       this.pluginClient.setScope(this.debugger.getScope())
       // set status to pause
       this.pluginClient.pause()
     })
     this.debugger.didResume(() => this.pluginClient.resume())
+    this.debugger.didLoadScript((script) => {
+      this.addBreakpointsForScript(script)
+    })
   }
 
-  async setCurrentBreakpoints () {
-    // apply breakpoints
+  activateFirstFrame (callFrames: Array<any>) {
+    let firstFrame = first(callFrames)
+    if (firstFrame) {
+      let { filePath, lineNumber, columnNumber } = firstFrame
+      this.pluginClient.activateBreakpoint(filePath, lineNumber, columnNumber)
+    }
+  }
+
+  addBreakpointsForScript (script: any) {
     let breaks = this.pluginClient.getBreakpoints()
-    await Promise.all(breaks.map((b) => {
+    breaks.forEach((b) => {
       let { filePath, lineNumber } = b
-      return this.didAddBreakpoint(filePath, lineNumber)
-    }))
+      if (filePath === script.url) {
+        this.didAddBreakpoint(filePath, lineNumber)
+      }
+    })
   }
 
   // Plugin Actions
