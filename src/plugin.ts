@@ -26,33 +26,21 @@ export class ChromeDebuggingProtocolPlugin {
     this.isConsoleEnabled = false
   }
 
+  didLaunchError (message: string) {}
+
   addEventListeners () {
-    this.launcher.didStop(() => {
-      this.pluginClient.stop()
-    })
-    this.launcher.didFail((message) => {
-      this.pluginClient.console.error(message)
-    })
+    this.launcher.didStop(() => this.pluginClient.stop())
+    this.launcher.didFail((message) => this.didLaunchError(message))
     // this.launcher.didReceiveOutput((message) => {
     //   this.pluginClient.console.log(message)
     // })
     // this.launcher.didReceiveError((message) => {
     //   this.pluginClient.console.error(message)
     // })
+    this.debugger.didClose(() => this.pluginClient.stop())
     this.debugger.didLogMessage((params) => {
       if (this.isConsoleEnabled === false) return
-      params.args.forEach((a) => {
-        switch (a.type) {
-          case 'string': {
-            this.pluginClient.console[params.type](a.value)
-          } break
-          default:
-            console.log('unhandled console', a)
-        }
-      })
-    })
-    this.debugger.didClose(() => {
-      this.pluginClient.stop()
+      this.pluginClient.console.output(params.type, params.args)
     })
     this.debugger.didPause((params) => {
       let callstackFrames = this.debugger.getCallStack()
@@ -68,7 +56,6 @@ export class ChromeDebuggingProtocolPlugin {
       } else {
         this.activateFirstFrame(callstackFrames)
       }
-
       this.pluginClient.setCallStack(callstackFrames)
       this.pluginClient.setScope(this.debugger.getScope())
       // set status to pause

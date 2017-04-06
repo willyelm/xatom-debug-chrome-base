@@ -69,7 +69,8 @@ export class ChromeDebuggingProtocolDebugger {
         this.events.emit('didLogMessage', {
           type: 'error',
           args: [{
-            value: params.exceptionDetails.description
+            type: 'string',
+            value: get(params, 'exceptionDetails.exception.description')
           }]
         })
       }
@@ -415,6 +416,7 @@ export class ChromeDebuggingProtocolDebugger {
         object: firstFrame.this
       })
     }
+    console.log(scope)
     return scope.map((s) => {
       return {
         name: s.type,

@@ -55,7 +55,6 @@ export class ChromeDebuggingProtocolLauncher {
       let output = ''
       this.process = spawn(binaryPath, launchArgs, this.getProcessOptions())
       this.process.stdout.on('data', (res: Uint8Array) => {
-        // output += res.toString()
         this.events.emit('didReceiveOutput', res)
       })
       this.process.stderr.on('data', (res: Uint8Array) => {
@@ -126,7 +125,7 @@ export class ChromeDebuggingProtocolLauncher {
         this
           .getPages()
           .catch(() => {
-            if (this.attempt <= this.maxAttempts) {
+            if (this.attempt < this.maxAttempts) {
               resolve(this.getSocketUrl())
             } else {
               reject('Unable to get remote debugger pages')
