@@ -22,6 +22,7 @@ export class ChromeDebuggingProtocolDebugger {
   public scripts: Array<Script> = []
   public callFrames: Array<any> = []
   public events: EventEmitter = new EventEmitter()
+  public skipFirstPause: boolean
   private ignoreUrls: Array<string> = [
     '',
     'extensions::app'
@@ -80,9 +81,14 @@ export class ChromeDebuggingProtocolDebugger {
       this.events.emit('didLogMessage', params)
     })
     Debugger.paused((params) => {
-      this.callFrames = params.callFrames
-      this.paused = true
-      this.events.emit('didPause', params)
+      if (this.skipFirstPause === true) {
+        Debugger.resume()
+        this.skipFirstPause = false
+      } else {
+        this.callFrames = params.callFrames
+        this.paused = true
+        this.events.emit('didPause', params)
+      }
     })
     Debugger.resumed((params) => {
       this.paused = false
