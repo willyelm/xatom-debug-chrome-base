@@ -55,7 +55,7 @@ export class ChromeDebuggingProtocolLauncher {
       let output = ''
       this.process = spawn(binaryPath, launchArgs, this.getProcessOptions())
       this.process.stdout.on('data', (res: Uint8Array) => {
-        output += res.toString()
+        // output += res.toString()
         this.events.emit('didReceiveOutput', res)
       })
       this.process.stderr.on('data', (res: Uint8Array) => {
@@ -65,7 +65,7 @@ export class ChromeDebuggingProtocolLauncher {
         }
       })
       this.process.on('close', (code) => {
-        if (code !== 0) {
+        if (code !== null && code !== 0) {
           this.events.emit('didFail', output)
         }
         this.events.emit('didStop')
