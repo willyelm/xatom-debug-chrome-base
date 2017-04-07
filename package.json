@@ -6,10 +6,7 @@
   "keywords": [
     "chrome",
     "debugging",
-    "protocol",
-    "nodejs",
-    "javascript",
-    "typescript"
+    "protocol"
   ],
   "scripts": {
     "build": "tsc -project src/tsconfig.json",
