@@ -417,7 +417,6 @@ export class ChromeDebuggingProtocolDebugger {
         object: firstFrame.this
       })
     }
-    console.log(scope)
     return scope.map((s) => {
       return {
         name: s.type,
