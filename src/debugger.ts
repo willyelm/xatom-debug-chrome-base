@@ -328,7 +328,8 @@ export class ChromeDebuggingProtocolDebugger {
           name: frame.functionName,
           columnNumber: frame.location.columnNumber,
           lineNumber: frame.location.lineNumber,
-          filePath: frame.location.script.url
+          filePath: frame.location.script.url,
+          scope: frame.scopeChain
         }
       })
   }
