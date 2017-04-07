@@ -329,7 +329,7 @@ export class ChromeDebuggingProtocolDebugger {
           columnNumber: frame.location.columnNumber,
           lineNumber: frame.location.lineNumber,
           filePath: frame.location.script.url,
-          scope: frame.scopeChain
+          scope: this.getScopeFromFrame(frame)
         }
       })
   }
@@ -408,13 +408,12 @@ export class ChromeDebuggingProtocolDebugger {
     }
     return Promise.resolve()
   }
-  getScope () {
-    let firstFrame = this.getFrameByIndex(0)
-    let scope = [...firstFrame.scopeChain]
-    if (firstFrame.this) {
+  getScopeFromFrame (frame) {
+    let scope = [...frame.scopeChain]
+    if (frame.this) {
       scope.unshift({
         type: 'this',
-        object: firstFrame.this
+        object: frame.this
       })
     }
     return scope.map((s) => {
@@ -423,6 +422,10 @@ export class ChromeDebuggingProtocolDebugger {
         value: s.object
       }
     })
+  }
+  getScope () {
+    let firstFrame = this.getFrameByIndex(0)
+    return this.getScopeFromFrame(firstFrame)
   }
   // Events
   didClose (cb: Function) {
