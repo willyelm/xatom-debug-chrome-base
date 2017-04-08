@@ -1,9 +1,12 @@
 import { spawn } from 'child_process'
 import { EventEmitter }  from 'events'
 import { ConsoleMessage, Domains, ChromeDebuggingProtocol }  from 'chrome-debugging-protocol'
-import { dirname, join, parse } from 'path'
-import { readFile } from 'fs'
-import { get, find, extend } from 'lodash'
+import { dirname, join, parse as parsePath } from 'path'
+import { resolve as resolveUrl, parse as parseUrl } from 'url'
+import { stat, readFile } from 'fs'
+import { request as requestHttp } from 'http'
+import { request as requestHttps } from 'https'
+import { get, find, extend, isUndefined } from 'lodash'
 const { SourceMapConsumer } = require('source-map')
 
 export interface Script {
@@ -98,6 +101,7 @@ export class ChromeDebuggingProtocolDebugger {
     Debugger.scriptParsed(async (params) => {
       let isIgnored = this.ignoreUrls['includes'](String(params.url))
       if (isIgnored ) return
+      params.originalUrl = params.url
       params.url = this.getFilePathFromUrl(params.url)
       let script: Script = {
         scriptId: params.scriptId,
@@ -106,74 +110,91 @@ export class ChromeDebuggingProtocolDebugger {
       }
       if (params.sourceMapURL) {
         let smc
-        let sourcePath = parse(params.url)
-        let isBase64 = params.sourceMapURL
+        let rawSourcemap
+        let sourcePath = parsePath(params.url)
+        let isBase64 = params
+          .sourceMapURL
           .match(/^data\:application\/json\;(charset=.+)?base64\,(.+)$/)
         if (isBase64) {
           let base64Content = window.atob(String(isBase64[2]))
-          let rawSourcemap = await this.getObjectFromString(base64Content)
+          rawSourcemap = await this.getObjectFromString(base64Content)
           smc = new SourceMapConsumer(rawSourcemap)
         } else {
           let mappingPath = join(sourcePath.dir, params.sourceMapURL)
-          smc = await this.getJSONSourceMapConsumer(mappingPath)
+          let mappingUrl
+          rawSourcemap = await this
+            .getObjectFromFile(mappingPath)
+            .catch(() => {
+              mappingUrl = resolveUrl(params.originalUrl, params.sourceMapURL)
+            })
+          if (mappingUrl && isUndefined(rawSourcemap)) {
+            rawSourcemap = await this
+              .getObjectFromUrl(mappingUrl)
+              .catch((e) => {
+                // skip: Unable to get sourcemaps.
+              })
+          }
         }
-        script.sourceMap = {
-          getOriginalPosition: (lineNumber: number, columnNumber?: number) => {
-            let lookup = {
-              line: lineNumber + 1,
-              column: columnNumber || 0,
-              bias: SourceMapConsumer.LEAST_UPPER_BOUND
-            }
-            let position = smc.originalPositionFor(lookup)
-            if (position.source === null) {
-              lookup.bias = SourceMapConsumer.GREATEST_LOWER_BOUND
-              position = smc.originalPositionFor(lookup)
-            }
-            let targetUrl = this.getFilePathFromUrl(position.source || '')
-            if (targetUrl === position.source) {
-              targetUrl = join(sourcePath.dir, position.source)
-            }
-            if (position.source) {
-              return {
-                url: targetUrl,
-                lineNumber: position.line - 1,
-                columnNumber: position.column
+        if (rawSourcemap) {
+          smc = new SourceMapConsumer(rawSourcemap)
+          script.sourceMap = {
+            getOriginalPosition: (lineNumber: number, columnNumber?: number) => {
+              let lookup = {
+                line: lineNumber + 1,
+                column: columnNumber || 0,
+                bias: SourceMapConsumer.LEAST_UPPER_BOUND
               }
-            } else {
-              return false
-            }
-          }
-        }
-        smc.sources.forEach((sourceUrl) => {
-          let targetUrl = this.getFilePathFromUrl(sourceUrl)
-          if (targetUrl === sourceUrl) {
-            targetUrl = join(sourcePath.dir, sourceUrl)
-          }
-          let mapScript: Script = {
-            // scriptId: params.scriptId,
-            url: targetUrl,
-            sourceMap: {
-              getPosition: (lineNumber: number, columnNumber?: number) => {
-                let lookup = {
-                  source: sourceUrl,
-                  line: lineNumber + 1,
-                  column: columnNumber || 0,
-                  bias: SourceMapConsumer.LEAST_UPPER_BOUND
-                }
-                let position = smc.generatedPositionFor(lookup)
-                if (position.line === null) {
-                  lookup.bias = SourceMapConsumer.GREATEST_LOWER_BOUND
-                  position = smc.generatedPositionFor(lookup)
-                }
+              let position = smc.originalPositionFor(lookup)
+              if (position.source === null) {
+                lookup.bias = SourceMapConsumer.GREATEST_LOWER_BOUND
+                position = smc.originalPositionFor(lookup)
+              }
+              let targetUrl = this.getFilePathFromUrl(position.source || '')
+              if (targetUrl === position.source) {
+                targetUrl = join(sourcePath.dir, position.source)
+              }
+              if (position.source) {
                 return {
-                  url: params.url,
-                  lineNumber: position.line - 1
+                  url: targetUrl,
+                  lineNumber: position.line - 1,
+                  columnNumber: position.column
                 }
+              } else {
+                return false
               }
             }
           }
-          this.addParsedScript(mapScript)
-        })
+          smc.sources.forEach((sourceUrl) => {
+            let targetUrl = this.getFilePathFromUrl(sourceUrl)
+            if (targetUrl === sourceUrl) {
+              targetUrl = join(sourcePath.dir, sourceUrl)
+            }
+            let mapScript: Script = {
+              // scriptId: params.scriptId,
+              url: targetUrl,
+              sourceMap: {
+                getPosition: (lineNumber: number, columnNumber?: number) => {
+                  let lookup = {
+                    source: sourceUrl,
+                    line: lineNumber + 1,
+                    column: columnNumber || 0,
+                    bias: SourceMapConsumer.LEAST_UPPER_BOUND
+                  }
+                  let position = smc.generatedPositionFor(lookup)
+                  if (position.line === null) {
+                    lookup.bias = SourceMapConsumer.GREATEST_LOWER_BOUND
+                    position = smc.generatedPositionFor(lookup)
+                  }
+                  return {
+                    url: params.url,
+                    lineNumber: position.line - 1
+                  }
+                }
+              }
+            }
+            this.addParsedScript(mapScript)
+          })
+        }
       }
       this.addParsedScript(script)
     })
@@ -192,8 +213,43 @@ export class ChromeDebuggingProtocolDebugger {
     this.events.emit('didLoadScript', script)
   }
 
-  getUrlForMappedSource (url): any {
+  getUrlForMappedSource (fileUrl: string): any {
     return null
+  }
+
+  private getObjectFromUrl (fileUrl: string) {
+    let urlParts = parseUrl(fileUrl)
+    let requesters = {
+      'http:': requestHttp,
+      'https:': requestHttps
+    }
+    return new Promise((resolve, reject) => {
+      let requester = requesters[urlParts.protocol]
+      if (requester) {
+        let req = requester({
+          hostname: urlParts.hostname,
+          port: urlParts.port,
+          path: urlParts.path,
+          method: 'GET'
+        }, (res) => {
+          let responseData = ''
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => {
+            responseData += chunk.toString()
+          })
+          res.on('end', () => {
+            // console.log('responseData', responseData)
+            resolve(this.getObjectFromString(responseData))
+          })
+        })
+        req.on('error', (e) => {
+          reject(`problem with request: ${e.message}`)
+        })
+        req.end()
+      } else {
+        reject('unable to identify url protocol')
+      }
+    })
   }
 
   private getObjectFromString (data) {
@@ -216,14 +272,6 @@ export class ChromeDebuggingProtocolDebugger {
         }
       })
     })
-  }
-
-  private getJSONSourceMapConsumer (mappingPath: string): Promise<any>  {
-    return this
-      .getObjectFromFile(mappingPath)
-      .then((data) => {
-        return new SourceMapConsumer(data)
-      })
   }
 
   resume () {
