@@ -1,7 +1,7 @@
 import { EventEmitter }  from 'events'
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, exec, ChildProcess } from 'child_process'
 import { request } from 'http'
-import { type, arch } from 'os'
+import { type, arch, platform } from 'os'
 
 export interface Page {
   type: string,
@@ -44,7 +44,11 @@ export class ChromeDebuggingProtocolLauncher {
     }
   }
   stop () {
-    this.process.kill()
+    if(platform() === 'win32') {
+      exec('taskkill /pid ' + this.process.pid + ' /T /F')
+    } else {
+      this.process.kill()
+    }
     this.events.emit('didStop')
   }
   start (): Promise<string> {
