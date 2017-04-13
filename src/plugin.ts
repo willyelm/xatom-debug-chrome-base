@@ -30,7 +30,11 @@ export class ChromeDebuggingProtocolPlugin {
 
   addEventListeners () {
     this.launcher.didStop(() => this.pluginClient.stop())
-    this.launcher.didFail((message) => this.didLaunchError(message))
+    this.launcher.didFail((message) => {
+      this.pluginClient.status.update('Unable to start process')
+      this.pluginClient.status.stopLoading()
+      this.didLaunchError(message)
+    })
     // this.launcher.didReceiveOutput((message) => {
     //   this.pluginClient.console.log(message)
     // })
@@ -59,9 +63,13 @@ export class ChromeDebuggingProtocolPlugin {
       this.pluginClient.setCallStack(callstackFrames)
       this.pluginClient.setScope(this.debugger.getScope())
       // set status to pause
+      this.pluginClient.status.update('Debugger Paused')
       this.pluginClient.pause()
     })
-    this.debugger.didResume(() => this.pluginClient.resume())
+    this.debugger.didResume(() => {
+      this.pluginClient.status.update('Debugger Resumed')
+      this.pluginClient.resume()
+    })
     this.debugger.didLoadScript((script) => {
       this.addBreakpointsForScript(script)
     })
@@ -87,6 +95,7 @@ export class ChromeDebuggingProtocolPlugin {
 
   // Plugin Actions
   async didStop () {
+    this.pluginClient.status.reset()
     this.pluginClient.console.clear()
     await this.debugger.disconnect()
     await this.launcher.stop()

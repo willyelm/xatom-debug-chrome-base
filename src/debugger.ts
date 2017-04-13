@@ -69,12 +69,16 @@ export class ChromeDebuggingProtocolDebugger {
     // Add Listeners
     Runtime.exceptionThrown((params) => {
       if (params.exceptionDetails) {
+        let errorObject = {
+          type: 'string',
+          value: get(params, 'exceptionDetails.exception.description')
+        }
+        if (params.exceptionDetails.exception) {
+          errorObject = params.exceptionDetails.exception
+        }
         this.events.emit('didLogMessage', {
           type: 'error',
-          args: [{
-            type: 'string',
-            value: get(params, 'exceptionDetails.exception.description')
-          }]
+          args: [errorObject]
         })
       }
     })
