@@ -52,6 +52,7 @@ export class ChromeDebuggingProtocolPlugin {
         params.hitBreakpoints.forEach(async (id) => {
           let breakpoint = await this.debugger.getBreakpointById(id)
           if (breakpoint) {
+            atom.focus()
             this.pluginClient.activateBreakpoint(breakpoint.url, breakpoint.lineNumber)
           } else {
             this.activateFirstFrame(callstackFrames)

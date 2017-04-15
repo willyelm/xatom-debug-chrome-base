@@ -17,12 +17,13 @@
   "repository": "https://github.com/atom-bugs/atom-bugs-chrome-debugger",
   "main": "./lib/index",
   "devDependencies": {
-    "typescript": "^2.2.2"
-  },
-  "dependencies": {
+    "@types/atom": "0.0.37",
     "@types/lodash": "^4.14.61",
     "@types/node": "^7.0.12",
     "@types/ws": "0.0.39",
+    "typescript": "^2.2.2"
+  },
+  "dependencies": {
     "chrome-debugging-protocol": "0.1.0",
     "lodash": "^4.17.4",
     "source-map": "^0.5.6",
