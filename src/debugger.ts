@@ -390,11 +390,12 @@ export class ChromeDebuggingProtocolDebugger {
     return this.callFrames[index]
   }
 
-  setBreakpointFromScript (script: Script, lineNumber: number) {
+  setBreakpointFromScript (script: Script, lineNumber: number, condition?: string) {
     return new Promise((resolve) => {
       let position = {
         url: script.url,
-        lineNumber: lineNumber
+        lineNumber: lineNumber,
+        condition
       }
       if (script.sourceMap) {
         position = script.sourceMap.getPosition(lineNumber)
@@ -409,6 +410,7 @@ export class ChromeDebuggingProtocolDebugger {
             id: breakpoint.breakpointId,
             url: script.url,
             columnNumber: 0,
+            condition,
             lineNumber
           })
           resolve(breakpoint)
@@ -419,14 +421,14 @@ export class ChromeDebuggingProtocolDebugger {
     })
   }
 
-  addBreakpoint (url: string, lineNumber: number) {
+  addBreakpoint (url: string, lineNumber: number, condition?: string) {
     return this
       .removeBreakpoint(url, lineNumber)
       .then(() => {
         return new Promise((resolve, reject) => {
           let script = this.getScriptByUrl(url)
           if (script) {
-            resolve(this.setBreakpointFromScript(script, lineNumber))
+            resolve(this.setBreakpointFromScript(script, lineNumber, condition))
           } else {
             reject(`${url} is not parsed`)
           }

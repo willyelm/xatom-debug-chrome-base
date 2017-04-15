@@ -88,9 +88,9 @@ export class ChromeDebuggingProtocolPlugin {
   addBreakpointsForScript (script: any) {
     let breaks = this.pluginClient.getBreakpoints()
     breaks.forEach((b) => {
-      let { filePath, lineNumber } = b
+      let { filePath, lineNumber, condition } = b
       if (filePath === script.url) {
-        this.didAddBreakpoint(filePath, lineNumber)
+        this.didAddBreakpoint(filePath, lineNumber, condition)
       }
     })
   }
@@ -114,10 +114,13 @@ export class ChromeDebuggingProtocolPlugin {
       return this.debugger.pause()
     }
   }
-  async didAddBreakpoint (filePath, lineNumber) {
+  async didAddBreakpoint (filePath, lineNumber, condition) {
     if (this.debugger.connected) {
-      return await this.debugger.addBreakpoint(filePath, lineNumber)
+      return await this.debugger.addBreakpoint(filePath, lineNumber, condition)
     }
+  }
+  async didChangeBreakpoint (filePath, lineNumber, condition) {
+    this.didAddBreakpoint(filePath, lineNumber, condition)
   }
   async didRemoveBreakpoint (filePath, lineNumber) {
     if (this.debugger.connected) {
