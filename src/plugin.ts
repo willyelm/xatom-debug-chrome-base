@@ -100,6 +100,7 @@ export class ChromeDebuggingProtocolPlugin {
     await this.debugger.disconnect()
     await this.launcher.stop()
     this.pluginClient.stop()
+    this.pluginClient.status.stopLoading()
   }
   async didResume () {
     if (this.debugger.connected) {

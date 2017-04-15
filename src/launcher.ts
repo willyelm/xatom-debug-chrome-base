@@ -2,7 +2,7 @@ import { EventEmitter }  from 'events'
 import { spawn, exec, ChildProcess } from 'child_process'
 import { request } from 'http'
 import { type, arch, platform } from 'os'
-import { extend } from 'lodash'
+import { extend, isObject } from 'lodash'
 const { BufferedProcess } = require('atom')
 
 export interface Page {
@@ -18,7 +18,7 @@ export class ChromeDebuggingProtocolLauncher {
   public hostName: string
   private process: ChildProcess
   private maxAttempts: number = 3
-  private attempt: number = 0
+  private launched: boolean
   private events: EventEmitter = new EventEmitter()
   // Events
   didStop (cb) {
@@ -66,7 +66,6 @@ export class ChromeDebuggingProtocolLauncher {
     this.events.emit('didStop')
   }
   start (): Promise<string> {
-    this.attempt = 0
     let launchArgs = this.getLauncherArguments()
     let binaryPath = this.getBinaryPath()
     let options = extend(this.getProcessOptions(), {
@@ -92,18 +91,18 @@ export class ChromeDebuggingProtocolLauncher {
         }
       })
       this.process.on('close', (code) => {
-        if (code > 1) {
+        if (this.launched !== true ) {
           this.events.emit('didFail', output)
         }
         this.events.emit('didStop')
       })
       return this.getSocketUrl()
     } else {
-      throw new Error('no binary path specified')
+      throw new Error('No binary path specified')
     }
   }
-  getPages (): Promise<Pages> {
-    return new Promise((resolve, reject) => {
+  getPages () {
+    return new Promise<Pages>((resolve, reject) => {
       setTimeout(() => {
         let req = request({
           hostname: this.hostName,
@@ -125,8 +124,8 @@ export class ChromeDebuggingProtocolLauncher {
       }, 500)
     })
   }
-  findSocketUrl (pages): Promise<string> {
-    return new Promise((resolve, reject) => {
+  findSocketUrl (pages) {
+    return new Promise<string>((resolve, reject) => {
       // get first page with a socket url
       let found = (pages || []).find((page: Page) => {
         return Boolean(page.webSocketDebuggerUrl)
@@ -134,7 +133,7 @@ export class ChromeDebuggingProtocolLauncher {
       if (found) {
         resolve(found.webSocketDebuggerUrl)
       } else {
-        reject('unable to find page with socket')
+        reject('Unable to find page with socket')
       }
       // let found = (pages || []).find((page: Page) => {
       //   return (page.url === 'chrome://newtab/')
@@ -146,23 +145,28 @@ export class ChromeDebuggingProtocolLauncher {
       // }
     })
   }
-  getSocketUrl (): Promise<string> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        this.attempt++
-        this
+  getSocketUrl () {
+    return new Promise<string | void>(async (resolve, reject) => {
+      let pages
+      for (var i = 0; i < this.maxAttempts; i++) {
+        pages = await this
           .getPages()
-          .catch(() => {
-            if (this.attempt < this.maxAttempts) {
-              resolve(this.getSocketUrl())
-            } else {
-              reject('Unable to get remote debugger pages')
-            }
+          .catch((e) => {
+            // continue
           })
-          .then((pages) => {
-            resolve(this.findSocketUrl(pages))
-          })
-      }, 500)
+        if (isObject(pages)) {
+          break;
+        }
+      }
+      await this
+        .findSocketUrl(pages)
+        .catch((message) => {
+          reject(message)
+        })
+        .then((socketUrl) => {
+          this.launched = true
+          resolve(socketUrl)
+        })
     })
   }
 }
