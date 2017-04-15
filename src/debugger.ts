@@ -395,12 +395,13 @@ export class ChromeDebuggingProtocolDebugger {
       let position = {
         url: script.url,
         lineNumber: lineNumber,
-        condition
+        condition: ''
       }
       if (script.sourceMap) {
         position = script.sourceMap.getPosition(lineNumber)
       }
       position.url = this.getFilePathFromUrl(position.url)
+      position.condition = condition
       this
         .domains
         .Debugger
