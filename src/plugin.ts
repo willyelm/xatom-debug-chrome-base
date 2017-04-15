@@ -31,9 +31,10 @@ export class ChromeDebuggingProtocolPlugin {
   addEventListeners () {
     this.launcher.didStop(() => this.pluginClient.stop())
     this.launcher.didFail((message) => {
-      this.pluginClient.status.update('Unable to start process')
+      this.pluginClient.status.update(message)
       this.pluginClient.status.stopLoading()
       this.didLaunchError(message)
+      this.didStop()
     })
     // this.launcher.didReceiveOutput((message) => {
     //   this.pluginClient.console.log(message)
