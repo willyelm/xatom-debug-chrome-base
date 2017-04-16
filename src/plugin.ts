@@ -31,7 +31,7 @@ export class ChromeDebuggingProtocolPlugin {
   addEventListeners () {
     this.launcher.didStop(() => this.pluginClient.stop())
     this.launcher.didFail((message) => {
-      this.pluginClient.status.update(message)
+      this.pluginClient.status.update(message, 'status-error')
       this.pluginClient.status.stopLoading()
       this.didLaunchError(message)
       this.didStop()
@@ -65,11 +65,11 @@ export class ChromeDebuggingProtocolPlugin {
       this.pluginClient.setCallStack(callstackFrames)
       this.pluginClient.setScope(this.debugger.getScope())
       // set status to pause
-      this.pluginClient.status.update('Debugger Paused')
+      this.pluginClient.status.update('Debugger Paused', 'status-warning')
       this.pluginClient.pause()
     })
     this.debugger.didResume(() => {
-      this.pluginClient.status.update('Debugger Resumed')
+      this.pluginClient.status.update('Debugger Resumed', 'status-success')
       this.pluginClient.resume()
     })
     this.debugger.didLoadScript((script) => {

@@ -1,6 +1,6 @@
 {
-  "name": "atom-bugs-chrome-debugger",
-  "version": "0.1.19",
+  "name": "xatom-debug-chrome-base",
+  "version": "0.1.20",
   "author": "Williams Medina <williams.medinaa@gmail.com>",
   "description": "Debugger library to connect with atom-bugs plugin launchers using the Chrome Debugging Protocol",
   "keywords": [
@@ -14,7 +14,7 @@
     "prepublish": "npm run build"
   },
   "license": "MIT",
-  "repository": "https://github.com/atom-bugs/atom-bugs-chrome-debugger",
+  "repository": "https://github.com/willyelm/xatom-debug-chrome-base",
   "main": "./lib/index",
   "devDependencies": {
     "@types/atom": "0.0.37",
