@@ -2,6 +2,8 @@ import { ChromeDebuggingProtocolLauncher } from './launcher'
 import { ChromeDebuggingProtocolDebugger } from './debugger'
 
 import { get, first, clone } from 'lodash'
+import { normalize } from 'path'
+import { realpath } from 'fs'
 
 export class ChromeDebuggingProtocolPlugin {
 
@@ -13,6 +15,23 @@ export class ChromeDebuggingProtocolPlugin {
   public debugger: any
 
   private isConsoleEnabled: boolean = true
+
+  normalizePath (dir: string, verify?: boolean) {
+    return new Promise<string>((resolve, reject) => {
+      let fixedPath = dir.replace(/^~/, process.env.HOME)
+      let normalizedPath = normalize(fixedPath)
+      if (verify) {
+        realpath(normalizedPath, (err, resolvedPath) => {
+          if (err) {
+            reject(err)
+          }
+          resolve(resolvedPath)
+        })
+      } else {
+        resolve(normalizedPath)
+      }
+    })
+  }
 
   register (pluginClient) {
     this.pluginClient = pluginClient
