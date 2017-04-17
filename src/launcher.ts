@@ -21,7 +21,7 @@ export class ChromeDebuggingProtocolLauncher {
   private launched: boolean
   private events: EventEmitter = new EventEmitter()
   quote (value: string) {
-    var unquoted = trim(trim(value, "'"), '"')
+    var unquoted = trim(value, ['"', " ", "'"] as any)
     var c, i, l = unquoted.length, o = '"'
     for (i = 0; i < l; i += 1) {
         c = unquoted.charAt(i)
