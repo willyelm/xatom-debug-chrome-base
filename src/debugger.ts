@@ -120,21 +120,6 @@ export class ChromeDebuggingProtocolDebugger {
       if (isIgnored ) return
       params.originalUrl = params.url
       params.url = this.getFilePathFromUrl(params.url)
-      await this
-        .fileExists(params.url)
-        .catch((err) => {
-          atom.notifications.addError('XAtom Debug: Unable to find file, make sure you have entered the correct configuration', {
-            detail: err,
-            dismissable: true
-          })
-          this.events.emit('didThrownException', {
-            exceptionDetails: {
-              exception: {
-                description: err
-              }
-            }
-          })
-      })
       let script: Script = {
         scriptId: params.scriptId,
         url: params.url,
@@ -153,6 +138,21 @@ export class ChromeDebuggingProtocolDebugger {
           smc = new SourceMapConsumer(rawSourcemap)
         } else {
           let mappingPath = join(sourcePath.dir, params.sourceMapURL)
+          await this
+            .fileExists(mappingPath)
+            .catch((err) => {
+              atom.notifications.addError('XAtom Debug: Unable to find file, make sure you have entered the correct configuration', {
+                detail: err,
+                dismissable: true
+              })
+              this.events.emit('didThrownException', {
+                exceptionDetails: {
+                  exception: {
+                    description: err
+                  }
+                }
+              })
+            })
           let mappingUrl
           rawSourcemap = await this
             .getObjectFromFile(mappingPath)
