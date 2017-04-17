@@ -50,6 +50,18 @@ export class ChromeDebuggingProtocolDebugger {
     return fileUrl
   }
 
+  fileExists (filePath: string) {
+    return new Promise((resolve, reject) => {
+      stat(filePath, (err, stats) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(stats);
+        }
+      })
+    })
+  }
+
   public async connect (socketUrl: string) {
     this.protocol = new ChromeDebuggingProtocol(socketUrl)
     this.domains = await this.protocol
@@ -108,6 +120,21 @@ export class ChromeDebuggingProtocolDebugger {
       if (isIgnored ) return
       params.originalUrl = params.url
       params.url = this.getFilePathFromUrl(params.url)
+      await this
+        .fileExists(params.url)
+        .catch((err) => {
+          atom.notifications.addError('XAtom Debug: Unable to find file, make sure you have entered the correct configuration', {
+            detail: err,
+            dismissable: true
+          })
+          this.events.emit('didThrownException', {
+            exceptionDetails: {
+              exception: {
+                description: err
+              }
+            }
+          })
+      })
       let script: Script = {
         scriptId: params.scriptId,
         url: params.url,
@@ -361,7 +388,7 @@ export class ChromeDebuggingProtocolDebugger {
     return this.callFrames
       .filter((frame: any) => {
         frame.location.script = this.getScriptById(parseInt(frame.location.scriptId))
-        let sourceMap = frame.location.script.sourceMap
+        let sourceMap: any = get(frame, 'location.script.sourceMap')
         if (sourceMap) {
           let position = sourceMap.getOriginalPosition(frame.location.lineNumber,
             parseInt(frame.location.columnNumber))
