@@ -1,6 +1,6 @@
 {
   "name": "xatom-debug-chrome-base",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "author": "Williams Medina <williams.medinaa@gmail.com>",
   "description": "Debugger library to connect with atom-bugs plugin launchers using the Chrome Debugging Protocol",
   "keywords": [
