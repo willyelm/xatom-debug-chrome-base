@@ -125,6 +125,7 @@ export class ChromeDebuggingProtocolDebugger {
         url: params.url,
         sourceMapURL: params.sourceMapURL
       }
+      let mappingUrl
       if (params.sourceMapURL) {
         let smc
         let rawSourcemap
@@ -135,25 +136,8 @@ export class ChromeDebuggingProtocolDebugger {
         if (isBase64) {
           let base64Content = window.atob(String(isBase64[2]))
           rawSourcemap = await this.getObjectFromString(base64Content)
-          smc = new SourceMapConsumer(rawSourcemap)
         } else {
           let mappingPath = join(sourcePath.dir, params.sourceMapURL)
-          await this
-            .fileExists(mappingPath)
-            .catch((err) => {
-              atom.notifications.addError('XAtom Debug: Unable to find file, make sure you have entered the correct configuration', {
-                detail: err,
-                dismissable: true
-              })
-              this.events.emit('didThrownException', {
-                exceptionDetails: {
-                  exception: {
-                    description: err
-                  }
-                }
-              })
-            })
-          let mappingUrl
           rawSourcemap = await this
             .getObjectFromFile(mappingPath)
             .catch(() => {
@@ -168,6 +152,21 @@ export class ChromeDebuggingProtocolDebugger {
           }
         }
         if (rawSourcemap) {
+          if (get(rawSourcemap, 'sources')) {
+            rawSourcemap.sources.forEach(async (sourceUrl, index) => {
+              let targetUrl = this.getFilePathFromUrl(sourceUrl)
+              if (targetUrl === sourceUrl) {
+                targetUrl = join(sourcePath.dir, sourceUrl)
+              }
+              rawSourcemap.sources[index] = targetUrl
+              await this.fileExists(targetUrl).catch((err) => {
+                atom.notifications.addError('XAtom Debug: Unable to locate file', {
+                  detail: err,
+                  dismissable: true
+                })
+              })
+            })
+          }
           smc = new SourceMapConsumer(rawSourcemap)
           script.sourceMap = {
             getOriginalPosition: (lineNumber: number, columnNumber?: number) => {
@@ -197,13 +196,9 @@ export class ChromeDebuggingProtocolDebugger {
             }
           }
           smc.sources.forEach((sourceUrl) => {
-            let targetUrl = this.getFilePathFromUrl(sourceUrl)
-            if (targetUrl === sourceUrl) {
-              targetUrl = join(sourcePath.dir, sourceUrl)
-            }
             let mapScript: Script = {
               // scriptId: params.scriptId,
-              url: targetUrl,
+              url: sourceUrl,
               sourceMap: {
                 getPosition: (lineNumber: number, columnNumber?: number) => {
                   let lookup = {
@@ -225,6 +220,11 @@ export class ChromeDebuggingProtocolDebugger {
               }
             }
             this.addParsedScript(mapScript)
+          })
+        } else {
+          atom.notifications.addError('XAtom Debug: Unable to map file', {
+            detail: mappingUrl,
+            dismissable: true
           })
         }
       }
