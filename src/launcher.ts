@@ -20,8 +20,11 @@ export class ChromeDebuggingProtocolLauncher {
   private maxAttempts: number = 3
   private launched: boolean
   private events: EventEmitter = new EventEmitter()
+  unquote (value: string) {
+    return trim(value, ['"', " ", "'"] as any)
+  }
   quote (value: string) {
-    var unquoted = trim(value, ['"', " ", "'"] as any)
+    var unquoted = this.unquote(value)
     var c, i, l = unquoted.length, o = '"'
     for (i = 0; i < l; i += 1) {
         c = unquoted.charAt(i)
