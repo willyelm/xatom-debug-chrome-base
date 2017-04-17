@@ -1,12 +1,13 @@
 {
   "name": "xatom-debug-chrome-base",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "author": "Williams Medina <williams.medinaa@gmail.com>",
   "description": "Debugger library to connect with atom-bugs plugin launchers using the Chrome Debugging Protocol",
   "keywords": [
     "chrome",
     "debugging",
-    "protocol"
+    "protocol",
+    "atom"
   ],
   "scripts": {
     "build": "tsc -project src/tsconfig.json",

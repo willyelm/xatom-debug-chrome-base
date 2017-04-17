@@ -69,11 +69,12 @@ export class ChromeDebuggingProtocolDebugger {
     // Add Listeners
     Runtime.exceptionThrown((params) => {
       if (params.exceptionDetails) {
+        this.events.emit('didThrownException', params)
         let errorObject = {
           type: 'string',
           value: get(params, 'exceptionDetails.exception.description')
         }
-        if (params.exceptionDetails.exception) {
+        if (get(params, 'exceptionDetails.exception')) {
           errorObject = params.exceptionDetails.exception
         }
         this.events.emit('didLogMessage', {
@@ -488,6 +489,9 @@ export class ChromeDebuggingProtocolDebugger {
   }
   didLogMessage (cb: Function) {
     this.events.addListener('didLogMessage', cb)
+  }
+  didThrownException (cb: Function) {
+    this.events.addListener('didThrownException', cb)
   }
   didLoadScript (cb: Function) {
     this.events.addListener('didLoadScript', cb)

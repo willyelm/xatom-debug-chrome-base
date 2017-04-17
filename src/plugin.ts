@@ -36,24 +36,33 @@ export class ChromeDebuggingProtocolPlugin {
       this.didLaunchError(message)
       this.didStop()
     })
-    // this.launcher.didReceiveOutput((message) => {
-    //   this.pluginClient.console.log(message)
-    // })
-    // this.launcher.didReceiveError((message) => {
-    //   this.pluginClient.console.error(message)
-    // })
+    this.launcher.didReceiveOutput((message) => {
+      this.pluginClient.console.log(message)
+    })
+    this.launcher.didReceiveError((message) => {
+      this.pluginClient.console.log(message)
+    })
     this.debugger.didClose(() => this.pluginClient.stop())
+    this.debugger.didThrownException((params) => {
+      let description = get(params, 'exceptionDetails.exception.description', 'Unknown Error')
+      this.pluginClient.status.update(description, 'status-error')
+    })
     this.debugger.didLogMessage((params) => {
       if (this.isConsoleEnabled === false) return
       this.pluginClient.console.output(params.type, params.args)
     })
     this.debugger.didPause((params) => {
+      // set status to pause
+      this.pluginClient.status.update('Debugger Paused', 'status-warning')
+      this.pluginClient.pause()
+      // get call stack
       let callstackFrames = this.debugger.getCallStack()
       if (params.hitBreakpoints && params.hitBreakpoints.length > 0) {
         params.hitBreakpoints.forEach(async (id) => {
           let breakpoint = await this.debugger.getBreakpointById(id)
           if (breakpoint) {
             atom.focus()
+            this.pluginClient.status.update('Debugger Breakpoint', 'status-success')
             this.pluginClient.activateBreakpoint(breakpoint.url, breakpoint.lineNumber)
           } else {
             this.activateFirstFrame(callstackFrames)
@@ -64,9 +73,6 @@ export class ChromeDebuggingProtocolPlugin {
       }
       this.pluginClient.setCallStack(callstackFrames)
       this.pluginClient.setScope(this.debugger.getScope())
-      // set status to pause
-      this.pluginClient.status.update('Debugger Paused', 'status-warning')
-      this.pluginClient.pause()
     })
     this.debugger.didResume(() => {
       this.pluginClient.status.update('Debugger Resumed', 'status-success')
