@@ -2,7 +2,7 @@ import { EventEmitter }  from 'events'
 import { spawn, exec, ChildProcess } from 'child_process'
 import { request } from 'http'
 import { type, arch, platform } from 'os'
-import { extend, isObject } from 'lodash'
+import { extend, isObject, trim } from 'lodash'
 const { BufferedProcess } = require('atom')
 
 export interface Page {
@@ -21,9 +21,10 @@ export class ChromeDebuggingProtocolLauncher {
   private launched: boolean
   private events: EventEmitter = new EventEmitter()
   quote (value: string) {
-    var c, i, l = value.length, o = '"'
+    var unquoted = trim(trim(value, "'"), '"')
+    var c, i, l = unquoted.length, o = '"'
     for (i = 0; i < l; i += 1) {
-        c = value.charAt(i)
+        c = unquoted.charAt(i)
         if (c >= ' ') {
           if (c === '\\' || c === '"') {
             o += '\\'
