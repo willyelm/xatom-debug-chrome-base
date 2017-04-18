@@ -267,7 +267,6 @@ export class ChromeDebuggingProtocolDebugger {
             responseData += chunk.toString()
           })
           res.on('end', () => {
-            // console.log('responseData', responseData)
             resolve(this.getObjectFromString(responseData))
           })
         })
@@ -389,7 +388,6 @@ export class ChromeDebuggingProtocolDebugger {
         if (sourceMap) {
           let position = sourceMap.getOriginalPosition(frame.location.lineNumber,
             parseInt(frame.location.columnNumber))
-          console.log('position', position)
           if (position) {
             frame.location.script.url = position.url
             frame.location.lineNumber = position.lineNumber
@@ -443,7 +441,7 @@ export class ChromeDebuggingProtocolDebugger {
           resolve(breakpoint)
         })
         .catch((message) => {
-          console.log('e', message)
+          // do nothing
         })
     })
   }
