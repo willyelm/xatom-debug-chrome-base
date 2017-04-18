@@ -156,15 +156,16 @@ export class ChromeDebuggingProtocolDebugger {
             rawSourcemap.sources.forEach(async (sourceUrl, index) => {
               let targetUrl = this.getFilePathFromUrl(sourceUrl)
               if (targetUrl === sourceUrl) {
-                targetUrl = join(sourcePath.dir, sourceUrl)
+                // targetUrl = join(sourcePath.dir, sourceUrl)
               }
               rawSourcemap.sources[index] = targetUrl
-              await this.fileExists(targetUrl).catch((err) => {
-                atom.notifications.addError('XAtom Debug: Unable to locate file', {
-                  detail: err,
-                  dismissable: true
-                })
-              })
+              // FIXME: find another way to validate files.
+              // await this.fileExists(targetUrl).catch((err) => {
+              //   atom.notifications.addError('XAtom Debug: Unable to locate file', {
+              //     detail: err,
+              //     dismissable: true
+              //   })
+              // })
             })
           }
           smc = new SourceMapConsumer(rawSourcemap)
@@ -180,13 +181,9 @@ export class ChromeDebuggingProtocolDebugger {
                 lookup.bias = SourceMapConsumer.GREATEST_LOWER_BOUND
                 position = smc.originalPositionFor(lookup)
               }
-              let targetUrl = this.getFilePathFromUrl(position.source || '')
-              if (targetUrl === position.source) {
-                targetUrl = join(sourcePath.dir, position.source)
-              }
               if (position.source) {
                 return {
-                  url: targetUrl,
+                  url: position.source, //targetUrl,
                   lineNumber: position.line - 1,
                   columnNumber: position.column
                 }
@@ -392,6 +389,7 @@ export class ChromeDebuggingProtocolDebugger {
         if (sourceMap) {
           let position = sourceMap.getOriginalPosition(frame.location.lineNumber,
             parseInt(frame.location.columnNumber))
+          console.log('position', position)
           if (position) {
             frame.location.script.url = position.url
             frame.location.lineNumber = position.lineNumber
