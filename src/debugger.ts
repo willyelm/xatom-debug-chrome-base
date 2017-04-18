@@ -156,7 +156,7 @@ export class ChromeDebuggingProtocolDebugger {
             rawSourcemap.sources.forEach(async (sourceUrl, index) => {
               let targetUrl = this.getFilePathFromUrl(sourceUrl)
               if (targetUrl === sourceUrl) {
-                // targetUrl = join(sourcePath.dir, sourceUrl)
+                targetUrl = join(sourcePath.dir, sourceUrl)
               }
               rawSourcemap.sources[index] = targetUrl
               // FIXME: find another way to validate files.
