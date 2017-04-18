@@ -163,25 +163,19 @@ export class ChromeDebuggingProtocolLauncher {
       }, 500)
     })
   }
+  findPageUrl (page): boolean {
+    return Boolean(page.webSocketDebuggerUrl)
+  }
   findSocketUrl (pages) {
     return new Promise<string>((resolve, reject) => {
-      // get first page with a socket url
       let found = (pages || []).find((page: Page) => {
-        return Boolean(page.webSocketDebuggerUrl)
+        return this.findPageUrl(page)
       })
       if (found) {
         resolve(found.webSocketDebuggerUrl)
       } else {
         reject('Unable to find page with socket')
       }
-      // let found = (pages || []).find((page: Page) => {
-      //   return (page.url === 'chrome://newtab/')
-      // })
-      // if (found) {
-      //   resolve(found.webSocketDebuggerUrl)
-      // } else {
-      //   reject('unable to find page with socket')
-      // }
     })
   }
   getSocketUrl () {
