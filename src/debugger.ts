@@ -421,7 +421,7 @@ export class ChromeDebuggingProtocolDebugger {
         lineNumber: lineNumber,
         condition: ''
       }
-      if (script.sourceMap) {
+      if (script.sourceMap && script.sourceMap.getPosition) {
         position = script.sourceMap.getPosition(lineNumber)
       }
       position.url = this.getFilePathFromUrl(position.url)
