@@ -89,20 +89,19 @@ export class ChromeDebuggingProtocolLauncher {
   }
   stop () {
     // this.process.stdin.end()
-    // if(platform() === 'win32') {
-    //   exec('taskkill /pid ' + this.process.pid + ' /T /F')
-    // } else {
-    //   this.process.kill()
-    // }
-    // process.kill(-this.process.pid, 'SIGINT');
-    this.process.stdin.end()
-    this.process.stderr.removeAllListeners()
-    this.process.stderr.pause()
-    this.process.stdout.removeAllListeners()
-    this.process.stdout.pause()
-    this.process.removeAllListeners()
-    this.process.kill('SIGINT')
+    if(platform() === 'win32') {
+      this.process.stdin.end()
+      this.process.stderr.removeAllListeners()
+      this.process.stderr.pause()
+      this.process.stdout.removeAllListeners()
+      this.process.stdout.pause()
+      this.process.removeAllListeners()
+      this.process.kill('SIGINT')
+    } else {
+      this.process.kill()
+    }
     this.events.emit('didStop')
+    // process.kill(-this.process.pid, 'SIGINT');
   }
   start (): Promise<string> {
     let launchArgs = this.getLauncherArguments()
